@@ -82,7 +82,7 @@
 #define OFF_NUM           9 // number of iterations to enter charger off state
 #define NO_BAT         10.0 // voltage below which battery is considered to be disconnected
 #define SAMP_NUM         15 // number of samples to average analog reads, must be 1 or greater
-#define LOW_BATT_ALARM 12.0 // voltage below which alarm sounds
+#define LOW_BATT_ALARM 12.4 // voltage below which alarm sounds
 
 //------------------------------------------------------------------------------------------------------
 //Defining led pins for indication Dn
@@ -127,6 +127,7 @@ void setup()                        // run once, when the sketch starts
   pinMode(PWM_ENABLE_PIN, OUTPUT);  // sets the digital pin as output
   pinMode(PWM_PIN, OUTPUT);         // sets the digital pin as output
   leds_off_all();
+  pinMode(ALARM_BUZZER, OUTPUT);
   pinMode(ALARM_BUTTON, INPUT_PULLUP); // input w/ pullup enabled
 
   Timer1.initialize(TIMER_PERIOD);     // initialize timer1, and set period
