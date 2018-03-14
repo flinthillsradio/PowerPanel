@@ -5,7 +5,7 @@
 // This code is a modified version of sample code from www.timnolan.com
 // dated 08/02/2015
 //
-// Mods by KI0BK
+// Mods by KI0BK 1-Jan-2018
 //
 // Size batteries and panels appropriately. Larger panels need larger batteries and vice versa.
 //
@@ -135,8 +135,7 @@ void setup()                        // run once, when the sketch starts
   Timer1.pwm(PWM_PIN, 0, TIMER_PERIOD);// start pwm
   Serial.begin(115200);             // open the serial port
   Serial1.begin(115200);            // open the serial port
-  //while (!Serial);                  // wait for serial to open
-  //Serial.println("Up and Running!");
+
   charger_state = no_battery;       // set charger state to no_battery
 }
 
@@ -202,9 +201,10 @@ void mode_select(void) {
   switch (charger_state) {
 
     case Start:
+	  /* wait until pv panel has sun or power supply is on to start charging */
       // Serial.print("mode:Start ");
       if (sol_volts > bat_volts) {
-        charger_state = cc;            //wait until pv panel has sun or power supply is on, start charging
+        charger_state = cc;            
         pulseWidth = (int)((bat_volts / sol_volts) * 1023);
       }
       else if (ps_volts > bat_volts) {
@@ -214,6 +214,7 @@ void mode_select(void) {
       break;
 
     case sleep:
+	  /* wait until battery volts drops to restart charging */
       //Serial.print("mode:sleep ");
       if (bat_volts < BAT_CHARGE) {    //restart charging
         charger_state = cc;
@@ -231,36 +232,37 @@ void mode_select(void) {
         charger_state = no_battery ;        // If battery voltage is below 10, there is no battery connected
       else if (bat_volts > MAX_BAT_VOLTS)
         charger_state = error;              // If battery voltage is over 14.5, there's a problem
-      else if ((sol_volts < bat_volts) && (ps_volts < bat_volts))  // If there's no light on the panel, or power supply is off go to start
+      else if ((sol_volts < bat_volts) && (ps_volts < bat_volts))  // If there's low light on the panel, or power supply is off go to start
         charger_state = Start;
       else if ((bat_amps < MIN_BAT_AMPS) && (pulseWidth > 1000))   // if not enough charge current, go to sleep
-        charger_state = sleep;                                     // we have charging power select mppt, cc or cv
+        charger_state = sleep;       
+	/* we have charging power select mppt, cc or cv */
       else if (bat_volts >= (BAT_FLOAT - 0.1)) {
-        charger_state = cv;                // If battery voltage is >= 14.4, go into cv charging
-        alarm_enable = true;               // re-enable low battery alarm
+        charger_state = cv;                 // If battery voltage is >= 14.4, go into cv charging
+        alarm_enable = true;                // re-enable low battery alarm
       }
       else if (bat_volts < (BAT_FLOAT - 0.3)) {
         if (sol_volts <= (ps_volts + 0.25)) // if power supply volts is greater then solar volts
-          charger_state = cc;              // use cc charging from power supply
-        else if (bat_amps < MIN_MPPT_AMPS)
+          charger_state = cc;               // use cc charging from power supply
+        else if (bat_amps < MIN_MPPT_AMPS)  // if low solar power use cc
           charger_state = cc;
-        else charger_state = mppt;         // else use mppt solar charging
+        else charger_state = mppt;          // else use mppt solar charging
       }
       if ((charger_state == mppt) && (bat_amps > MAX_BAT_AMPS))
-        charger_state = cc;
+        charger_state = cc;                 // if charge current is too high switch to cc
       else if ((charger_state == cv) && (bat_amps < MIN_BAT_AMPS))
-        charger_state = sleep;
+        charger_state = sleep;              // shut off charging when battery current drops
       break;
 
     case error:
       //Serial.print("mode:error ");
-      if (bat_volts <= BAT_FLOAT - 0.3)    //wait until battery needs charging again
+      if (bat_volts <= BAT_FLOAT - 0.3)     //wait until battery needs charging again
         charger_state = sleep;
       break;
 
     case no_battery:
       //Serial.print("mode:noBat ");
-      if (bat_volts > NO_BAT)              //wait until battery is present
+      if (bat_volts > NO_BAT)               //wait until battery is present
         charger_state = Start;
       break;
 
@@ -290,14 +292,12 @@ void set_charger(void) {
 
     case cc:               // the charger is in the constant current state
       if (bat_amps < MAX_BAT_AMPS) {
-        pulseWidth++;
-        enable_charger();  //
+        pulseWidth++;      // below max current, bump up pwm
+        enable_charger();  
       }
       if (bat_amps > MAX_BAT_AMPS) {
-        pulseWidth -= 5;
-        //pulseWidth--;
-        //pulseWidth--;
-        enable_charger();  //
+        pulseWidth -= 5;   // above max current, drop down pwm
+        enable_charger();  
       }
       break;
 
@@ -327,11 +327,12 @@ void set_charger(void) {
 }
 
 //------------------------------------------------------------------------------------------------------
-// MPPT algorithm
+// MPPT algorithm  (Hill climb to peak power)
 //------------------------------------------------------------------------------------------------------
 void PerturbAndObserve() {
   if ((pulseWidth <= 300) || (pulseWidth >= 940) || (sol_watts < old_sol_watts))
     trackDirection = -trackDirection;       // if pulseWidth has hit one of the ends reverse the track direction
+
   pulseWidth = pulseWidth + trackDirection; // add (or subtract) track Direction to(from) pulseWidth
 }
 
@@ -340,9 +341,10 @@ void PerturbAndObserve() {
 //------------------------------------------------------------------------------------------------------
 void enable_charger() {
   if (charger_state == mppt)
-    pulseWidth = constrain(pulseWidth, 300, 900);
+    pulseWidth = constrain(pulseWidth, 300, 940);
   else
     pulseWidth = constrain(pulseWidth, 0, 1023);   // prevent over/underflow of pulseWidth
+
   pwm = map(pulseWidth, 0, 1023, 0, 100);          // use pulseWidth to get a % value and store it in pwm
   Timer1.setPwmDuty(PWM_PIN, pulseWidth);          // use Timer1 routine to set pwm duty cycle
   TURN_ON_MOSFETS;                                 // enable the MOSFET driver
@@ -365,10 +367,6 @@ void graph_data(void) {
   Serial.print(" ");
   Serial.print(bat_volts);
   Serial.print(" ");
-  //Serial.print(bat_amps);
-  //Serial.print(" ");
-  //Serial.println(ps_volts);
-  //Serial.print(" ");
   Serial.print(sol_watts);
   Serial.println(charger_state);
 }
@@ -386,8 +384,8 @@ void print_data(void) {
   if (charger_state == no_battery) Serial1.print("noBat");
   else if (charger_state == sleep) Serial1.print("sleep");
   else if (charger_state == mppt)  Serial1.print("mppt ");
-  else if (charger_state == cc) Serial1.print("cc   ");
-  else if (charger_state == cv) Serial1.print("cv   ");
+  else if (charger_state == cc)    Serial1.print("cc   ");
+  else if (charger_state == cv)    Serial1.print("cv   ");
   else if (charger_state == error) Serial1.print("error");
   else if (charger_state == Start) Serial1.print("start");
   Serial1.print(" ");
@@ -465,17 +463,18 @@ void leds_off_all(void)
 //------------------------------------------------------------------------------------------------------
 void low_batt_alarm(void)
 {
-  if (!(digitalRead(ALARM_BUTTON)))      //if butten pressed
+  if (!(digitalRead(ALARM_BUTTON)))      //if button pressed
     alarm_enable = false;                //disable alarm
-
-  if ((bat_volts > NO_BAT) && (bat_volts < LOW_BATT_ALARM) && alarm_enable) { //if battery exists and is low and alarm is enabled
+	
+	/* //if battery exists and is low and alarm is enabled */
+  if ((bat_volts > NO_BAT) && (bat_volts < LOW_BATT_ALARM) && alarm_enable) { 
     //toggle alarm buzzer (beep)
     if ( digitalRead(ALARM_BUZZER) )
       digitalWrite(ALARM_BUZZER, LOW);
     else
       digitalWrite(ALARM_BUZZER, HIGH);
   }
-  else //silance alarm
+  else //silence alarm
     digitalWrite(ALARM_BUZZER, LOW);
 }
 
@@ -485,16 +484,16 @@ void low_batt_alarm(void)
 void loop()
 {
   read_data();         // read data from inputs
-  graph_data();        //display graph data
+  graph_data();        // display graph data
   mode_select();       // select the charging state
   if (seconds != prev_seconds)
   {
     prev_seconds = seconds;
     print_data();      // print data
-    low_batt_alarm();  //test for low battery
+    low_batt_alarm();  // test for low battery
   }
-  set_charger();  // run the charger state machine
-  led_output();   // show battery SOC
+  set_charger();       // run the charger state machine
+  led_output();        // show battery SOC
   delay(10);
 }
 
