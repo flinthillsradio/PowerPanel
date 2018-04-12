@@ -6,7 +6,10 @@
 // dated 08/02/2015
 //
 // Mods by KI0BK 1-Jan-2018
-//
+/*
+ * Version  1.0 8-apr-2018  Release for first two boards to Novexcomm for use with 20AH LiFePO4
+ *
+ */
 // Size batteries and panels appropriately. Larger panels need larger batteries and vice versa.
 //
 //// Specifications : /////////////////////////////////////////////////////////////////////////
@@ -71,14 +74,14 @@
 #define PWM_ENABLE_PIN    8 // pin used to control shutoff function of the IR2104 MOSFET driver (when hight the mosfet driver is on)
 #define TURN_ON_MOSFETS  digitalWrite(PWM_ENABLE_PIN, HIGH) // enable MOSFET driver
 #define TURN_OFF_MOSFETS digitalWrite(PWM_ENABLE_PIN, LOW)  // disable MOSFET driver
-#define TIMER_PERIOD   2000 // number of microseconds interrupt period
+#define TIMER_PERIOD  20000 // number of microseconds interrupt period
 #define ONE_SECOND  1000000/TIMER_PERIOD // number of interrupts in 1 second
 #define MAX_BAT_VOLTS  14.6 // we don't want the battery going any higher than this
 #define MIN_BAT_AMPS   0.30 // min charging current
-#define MAX_BAT_AMPS   3.50 // max charging current during cc mode (C/5)
+#define MAX_BAT_AMPS   6.00 // max charging current during cc mode (C*0.3)
 #define MIN_MPPT_AMPS  1.00 // min PV current for mppt mode to start (must be above MIN_BAT_AMPS)
 #define BAT_FLOAT      14.4 // battery voltage we want to stop charging at
-#define BAT_CHARGE     12.5 // battery voltage we restart charging again
+#define BAT_CHARGE     13.0 // battery voltage we restart charging again
 #define OFF_NUM           9 // number of iterations to enter charger off state
 #define NO_BAT         10.0 // voltage below which battery is considered to be disconnected
 #define SAMP_NUM         15 // number of samples to average analog reads, must be 1 or greater
