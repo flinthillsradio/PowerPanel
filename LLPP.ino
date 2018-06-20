@@ -7,6 +7,9 @@
 //
 // Mods by KI0BK started 01-Feb-2018
 /*
+ * Branch SLA
+ * Version  1.0  20-Jun-2018 created SLA battery version in new branch
+ * Branch Master
  * Version  1.1.1 1-May-2018 added factory setup for two sizes of lifepo4 packs
  * Version  1.1  30-apr-2018 Release for Novexcomm added support for 24v solar panels
  * Version  1.0   8-apr-2018 Release for first two boards to Novexcomm for use with 20AH LiFePO4
@@ -77,18 +80,20 @@
 #define TURN_OFF_MOSFETS digitalWrite(PWM_ENABLE_PIN, LOW)  // disable MOSFET driver
 #define TIMER_PERIOD     20 // number of microseconds interrupt period
 #define ONE_SECOND  1000000/TIMER_PERIOD // number of interrupts in 1 second
-#define MAX_BAT_VOLTS  14.6 // we don't want the battery going any higher than this
-#define MIN_BAT_AMPS   0.50 // min charging current
+#define MAX_BAT_VOLTS  14.0 // we don't want the battery going any higher than this
+#define MIN_BAT_AMPS   0.25 // min charging current
 //#define MAX_BAT_AMPS   2.00 // max charging current during cc mode (C/6)
 #define MIN_MPPT_AMPS  1.00 // min PV current for mppt mode to start (must be above MIN_BAT_AMPS)
-#define BAT_FLOAT      14.4 // battery voltage we want to stop charging at
-#define BAT_CHARGE     13.0 //12.5 // battery voltage we restart charging again
+#define BAT_FLOAT      13.6 // battery voltage we want to stop charging at
+#define BAT_CHARGE     13.0 // battery voltage we restart charging again
 #define OFF_NUM           9 // number of iterations to enter charger off state
 #define NO_BAT         10.0 // voltage below which battery is considered to be disconnected
 #define SAMP_NUM         15 // number of samples to average analog reads, must be 1 or greater
-#define LOW_BATT_ALARM 12.9 // voltage below which alarm sounds
+#define LOW_BATT_ALARM 11.9 // voltage below which alarm sounds
 #define EEADDRESS 0xAA
 
+//------------------------------------------------------------------------------------------------------
+// DON'T MAKE ANY CHANGES BELOW THIS POINT UNLESS YOU KNOW WHAT YOUR DOING!
 //------------------------------------------------------------------------------------------------------
 //Defining led pins for indication Dn
 #define LED_RED    3
@@ -284,13 +289,13 @@ void mode_select(void) {
       if (bat_volts < NO_BAT)
         charger_state = no_battery ;        // If battery voltage is below 10, there is no battery connected
       else if (bat_volts > MAX_BAT_VOLTS)
-        charger_state = error;              // If battery voltage is over 14.5, there's a problem
+        charger_state = error;              // If battery voltage is over MAX_BAT_VOLTS, there's a problem
       else if ((sol_volts < bat_volts) && (ps_volts < bat_volts))  // If there's no light on the panel, or power supply is off go to start
         charger_state = Start;
-      else if ((bat_amps < MIN_BAT_AMPS) && (pulseWidth > 1000))   // if not enough charge current, go to sleep
-        charger_state = sleep;                                     // we have charging power select mppt, cc or cv
-      else if (bat_volts >= (BAT_FLOAT - 0.1)) {
-        charger_state = cv;                // If battery voltage is >= 14.4, go into cv charging
+      //else if ((bat_amps < MIN_BAT_AMPS) && (pulseWidth > 1000))   // if not enough charge current, go to sleep
+      //  charger_state = sleep;                                     
+      else if (bat_volts >= (BAT_FLOAT - 0.1)) { // we have charging power select mppt, cc or cv
+        charger_state = cv;                // If battery voltage is >= BAT_FLOAT, go into cv charging
         alarm_enable = true;               // re-enable low battery alarm
       }
       else if (bat_volts < (BAT_FLOAT - 0.3)) {
@@ -302,11 +307,12 @@ void mode_select(void) {
       }
       if ((charger_state == mppt) && (bat_amps > maxBattAmps))
         charger_state = cc;
+      /*  SLA stay in cv mode until charging volts < battery volts
       else if ((charger_state == cv) && (bat_amps < MIN_BAT_AMPS))
       {
         charger_state = sleep;
         old_millis = millis();
-      }
+      }//*/
       break;
 
     case error:
@@ -494,15 +500,15 @@ void print_data(void) {
 //-------------------------------------------------------------------------------------------------
 void led_output(void)
 {
-  if (bat_volts > 14.5 ) {
+  if (bat_volts > 14.0 ) {
     leds_off_all();
     digitalWrite(LED_RED, LOW);
   }
-  else if ((bat_volts > 12.6) && (bat_volts < 14.4)) {
+  else if ((bat_volts > 12.0) && (bat_volts <= 14.0)) {
     leds_off_all();
     digitalWrite(LED_GREEN, LOW);
   }
-  else if ((bat_volts > 10.1) && (bat_volts < 12.5)) {
+  else if ((bat_volts > 10.1) && (bat_volts <= 12.0)) {
     leds_off_all();
     digitalWrite(LED_BLUE, LOW);
   }
