@@ -146,7 +146,7 @@ void setup()                        // run once, when the sketch starts
   charger_state = no_battery;          // set charger state to no_battery
   
   EEPROM.get(EEADDRESS, maxBattAmps);  // read max charging rate from eeprom
-  if (maxBattAmps > 8.0 && maxBattAmps < 2.0){
+  if (isnan(maxBattAmps) || maxBattAmps > 8.0 || maxBattAmps < 2.0){
     maxBattAmps = 3.0;
     EEPROM.put(EEADDRESS, maxBattAmps); // write default charging rate to eeprom
     Serial1.println("!! Wrote default charging rate 3.0 amps to EEprom !!");
@@ -476,6 +476,8 @@ void print_data(void) {
 
   Serial1.print("Ibatt = ");
   Serial1.print(bat_amps);
+  Serial1.print("/");
+  Serial1.print(maxBattAmps);
   Serial1.print(" ");
 
   Serial1.print("Vps = ");
@@ -559,4 +561,3 @@ void loop()
   led_output();   // show battery SOC
   delay(10);
 }
-
