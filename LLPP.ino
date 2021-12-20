@@ -87,6 +87,7 @@
 #define NO_BAT         10.0 // voltage below which battery is considered to be disconnected
 #define SAMP_NUM         15 // number of samples to average analog reads, must be 1 or greater
 #define LOW_BATT_ALARM 12.9 // voltage below which alarm sounds
+#define LOW_BATT_DELAY 30000 // ms below low battery level before alarm sounds
 #define EEADDRESS 0xAA
 
 //------------------------------------------------------------------------------------------------------
@@ -114,7 +115,9 @@ float maxBattAmps;        // max charging rate
 volatile unsigned int seconds;      // seconds from timer routine
 unsigned int prev_seconds;          // seconds value from previous pass
 unsigned int interrupt_counter;     // counter for 20us interrrupt
+
 bool alarm_enable = true;
+enum alarm_state { off, low_batt, on } alarm_state = off;
 
 int pulseWidth = 0;           // pwm duty cycle 0-1023
 int pwm;                      // mapped value of pulseWidth in %
@@ -528,17 +531,35 @@ void leds_off_all(void)
 //------------------------------------------------------------------------------------------------------
 void low_batt_alarm(void)
 {
-  if (!(digitalRead(ALARM_BUTTON)))      //if butten pressed
-    alarm_enable = false;                //disable alarm
+  static long low_batt_ms = 0;
 
-  if ((bat_volts > NO_BAT) && (bat_volts < LOW_BATT_ALARM) && alarm_enable) { //if battery exists and is low and alarm is enabled
-    //toggle alarm buzzer (beep)
-    if ( digitalRead(ALARM_BUZZER) )
+  if (!(digitalRead(ALARM_BUTTON)))      // if button pressed
+    alarm_enable = false;                // disable alarm
+
+  if ((bat_volts < NO_BAT) || (bat_volts > LOW_BATT_ALARM)) // Battery disconnected or over trigger voltage immediately disables alarm
+    alarm_state = off;
+  else if ((bat_volts > NO_BAT) && (bat_volts < LOW_BATT_ALARM)) { // Battery is within the alarm voltage range
+	switch (alarm_state) {
+      case off:
+	    low_batt_ms = millis();
+		alarm_state = low_batt;
+        break;
+
+      case low_batt:
+	    if ((millis() - low_batt_ms) > LOW_BATT_DELAY)
+		   alarm_state = on;
+        break;
+	 }
+  }
+
+  if (alarm_enable && (alarm_state == on)) {
+    // toggle alarm buzzer (beep)
+    if (digitalRead(ALARM_BUZZER))
       digitalWrite(ALARM_BUZZER, LOW);
     else
       digitalWrite(ALARM_BUZZER, HIGH);
   }
-  else //silance alarm
+  else // silence alarm
     digitalWrite(ALARM_BUZZER, LOW);
 }
 
